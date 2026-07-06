@@ -632,7 +632,7 @@ class App(tk.Tk):
         if self.screen_var.get():
             mon_idx = self.monitor_map.get(self.monitor_choice.get(), 1)
             try:
-                src = ScreenCaptureThread(monitor_index=mon_idx, fps=15)
+                src = ScreenCaptureThread(monitor_index=mon_idx, fps=30)
                 src.start()
                 for _ in range(50):
                     if src.actual_width is not None: break

@@ -1,8 +1,11 @@
 """ffmpeg helpers: binary location, quality presets, hardware-encoder
 smoke-test, and codec argument builders (video + optional audio)."""
+import os
 import subprocess
 import shutil
 import numpy as np
+
+_POPEN_HIDE = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
 
 QUALITY_PRESETS = {
     "compact":  {"crf": 28, "hw_bitrate": "2M"},
@@ -55,7 +58,8 @@ def _smoke_test(ffmpeg, codec, width, height, fps):
     try:
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE,
                                  stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL)
+                                 stderr=subprocess.DEVNULL,
+                                 **_POPEN_HIDE)
         proc.stdin.write(blank)
         proc.stdin.close()
         return proc.wait(timeout=5) == 0

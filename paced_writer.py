@@ -7,6 +7,7 @@ frame is repeated — keeping output duration always equal to wall-clock time.
 Optional audio_device (DirectShow device name string) adds a live audio
 stream via ffmpeg's DirectShow input, muxed into the same .mp4.
 """
+import os
 import threading
 import time
 import csv
@@ -60,7 +61,12 @@ class PacedWriter(threading.Thread):
         cmd += build_audio_args(has_audio)
         cmd += [output_video_path]
 
-        self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+        popen_kwargs = dict(stdin=subprocess.PIPE,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+        if os.name == "nt":
+            popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+        self.proc = subprocess.Popen(cmd, **popen_kwargs)
 
         self.log_file   = open(output_log_path, "w", newline="")
         self.log_writer = csv.writer(self.log_file)
