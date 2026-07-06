@@ -1,25 +1,30 @@
 name: Build Windows EXE
 
-# Triggers a build whenever you push a version tag, e.g.:
-#   git tag v1.0 && git push origin v1.0
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:  # also allows manual "Run workflow" button on GitHub
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
 
@@ -27,7 +32,14 @@ jobs:
         run: |
           pyinstaller --onefile --windowed --name MulticamCapture main.py
 
-      - name: Upload exe as release asset
+      - name: Upload EXE as downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MulticamCapture-Windows
+          path: dist/MulticamCapture.exe
+
+      - name: Upload EXE as release asset
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/MulticamCapture.exe
