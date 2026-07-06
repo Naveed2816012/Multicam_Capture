@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+dist/
+build/
+*.spec
+*.mp4
+*.csv
+session_sync.json
