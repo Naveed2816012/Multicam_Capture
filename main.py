@@ -93,6 +93,11 @@ class App(tk.Tk):
         self._fps_track      = {}     # name -> {t, f, fps} for live fps computation
         self._builtin_info   = None
 
+        # Persisted settings (save location + per-camera fps/resolution/etc.)
+        self._settings_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "settings.json")
+        self._settings = self._load_settings()
+
         self._build_top_bar()
         self._build_tile_area()
         self._build_status_bar()
@@ -144,11 +149,16 @@ class App(tk.Tk):
         # Save location ───────────────────────────────────────────────────
         out = ttk.LabelFrame(bar, text="Save Location")
         out.pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        self.out_dir = tk.StringVar(value=os.path.expanduser("~"))
+        self.out_dir = tk.StringVar(
+            value=self._settings.get("out_dir", os.path.expanduser("~")))
         ttk.Entry(out, textvariable=self.out_dir,
                   width=30).pack(padx=6, pady=2)
-        ttk.Button(out, text="Browse…",
-                   command=self._browse).pack(padx=6, pady=2)
+        btn_row = ttk.Frame(out)
+        btn_row.pack(padx=6, pady=2, fill=tk.X)
+        ttk.Button(btn_row, text="Browse…",
+                   command=self._browse).pack(side=tk.LEFT, expand=True, fill=tk.X)
+        ttk.Button(btn_row, text="Open Folder",
+                   command=self._open_out_dir).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(4, 0))
         self.session_name = tk.StringVar(
             value=time.strftime("session_%Y%m%d_%H%M%S"))
         ttk.Entry(out, textvariable=self.session_name,
@@ -302,14 +312,14 @@ class App(tk.Tk):
 
         max_btn = tk.Button(header, text="⊞", bg=HDR, fg="#bdc3c7",
                             activebackground="#2980b9", activeforeground="white",
-                            relief="flat", bd=0,
+                            relief="flat", bd=0, cursor="arrow",
                             font=("Segoe UI", 10),
                             command=lambda n=name: self._toggle_maximize(n))
         max_btn.grid(row=0, column=2, padx=(2, 2), pady=3)
 
         close_btn = tk.Button(header, text="✕", bg=HDR, fg="#e74c3c",
                               activebackground="#c0392b", activeforeground="white",
-                              relief="flat", bd=0,
+                              relief="flat", bd=0, cursor="arrow",
                               font=("Segoe UI", 10, "bold"),
                               command=lambda n=name: self._remove_tile(n))
         close_btn.grid(row=0, column=3, padx=(2, 5), pady=3)
@@ -430,6 +440,17 @@ class App(tk.Tk):
             "qual_var": qual_var, "audio_en": audio_en, "audio_dev": audio_dev,
             "limit_en": limit_en, "limit_mins": limit_mins, "_limit_job": None,
         }
+
+        saved = self._settings.get("cameras", {}).get(name)
+        if saved:
+            if saved.get("label"):      label_var.set(saved["label"])
+            if saved.get("resolution"): res_var.set(saved["resolution"])
+            if saved.get("fps"):        fps_var.set(saved["fps"])
+            if saved.get("quality"):    qual_var.set(saved["quality"])
+            if "audio_en" in saved:     audio_en.set(saved["audio_en"])
+            if saved.get("audio_dev"):  audio_dev.set(saved["audio_dev"])
+            if "limit_en" in saved:     limit_en.set(saved["limit_en"])
+            if saved.get("limit_mins"): limit_mins.set(saved["limit_mins"])
 
     def _toggle_maximize(self, name):
         """Expand one tile to fill the entire tile area, or restore the grid."""
@@ -730,6 +751,12 @@ class App(tk.Tk):
         self._update_global_btns()
         if summary:
             self._show_summary(name, summary)
+        # Once every writer in this session has fully stopped, drop the
+        # session object. Otherwise _ensure_session() keeps reusing the
+        # output_dir/session_name captured at the *first* recording, even
+        # after the user changes Save Location for the next one.
+        if self.session and not self.session.any_recording():
+            self.session = None
 
     def _arm_limit(self, name):
         tile = self.tiles.get(name)
@@ -894,9 +921,57 @@ class App(tk.Tk):
     # HELPERS
     # ══════════════════════════════════════════════════════════════════════
 
+    def _load_settings(self):
+        try:
+            with open(self._settings_path, "r") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def _save_settings(self):
+        cameras = {}
+        for name, t in self.tiles.items():
+            cameras[name] = {
+                "label":      t["label_var"].get(),
+                "resolution": t["res_var"].get(),
+                "fps":        t["fps_var"].get(),
+                "quality":    t["qual_var"].get(),
+                "audio_en":   t["audio_en"].get(),
+                "audio_dev":  t["audio_dev"].get(),
+                "limit_en":   t["limit_en"].get(),
+                "limit_mins": t["limit_mins"].get(),
+            }
+        data = {"out_dir": self.out_dir.get(), "cameras": cameras}
+        try:
+            with open(self._settings_path, "w") as f:
+                json.dump(data, f, indent=2)
+        except OSError:
+            pass
+
     def _browse(self):
-        d = filedialog.askdirectory()
+        # Windows' native folder picker never lists files inside a folder —
+        # that's an OS-level restriction, not something this app controls.
+        # initialdir at least opens where you're currently saving, so you can
+        # see sibling session folders and confirm you're in the right place.
+        start = self.out_dir.get().strip() or os.path.expanduser("~")
+        if not os.path.isdir(start):
+            start = os.path.expanduser("~")
+        d = filedialog.askdirectory(initialdir=start)
         if d: self.out_dir.set(d)
+
+    def _open_out_dir(self):
+        """Open the current save location in Explorer, so files inside are
+        actually visible (which the Browse dialog can't show)."""
+        d = self.out_dir.get().strip()
+        if not d or not os.path.isdir(d):
+            messagebox.showerror("Folder not found",
+                                  f"This folder doesn't exist yet:\n{d}")
+            return
+        try:
+            os.startfile(d)   # Windows
+        except AttributeError:
+            import subprocess
+            subprocess.Popen(["xdg-open", d])   # Linux fallback
 
     def _show_summary(self, name, s):
         title = ("Saved — clean" if s["duplicate_frames"] == 0
@@ -923,6 +998,7 @@ class App(tk.Tk):
                                         "Stop all recordings and exit?"):
                 return
             self.session.stop_all()
+        self._save_settings()
         for src in self.preview_sources.values():
             src.stop()
         self.destroy()
