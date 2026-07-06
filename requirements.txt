@@ -1,0 +1,5 @@
+opencv-python
+mss
+numpy
+Pillow
+pygrabber ; sys_platform == "win32"
