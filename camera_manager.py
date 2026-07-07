@@ -19,18 +19,6 @@ _BACKENDS = [
 ]
 
 
-_BUILTIN_KEYWORDS = [
-    "integrated", "built-in", "builtin", "internal", "facetime",
-    "ir camera", "hd camera", "hp hd", "dell hd", "thinkpad", "surface",
-    "intel(r) avc", "laptop", "notebook",
-]
-
-def is_builtin_camera(name):
-    """Return True if the camera name suggests a built-in / integrated webcam."""
-    n = name.lower()
-    return any(kw in n for kw in _BUILTIN_KEYWORDS)
-
-
 def _probe_index(index, results, lock):
     """Try opening camera `index` with each backend; record the first that works."""
     for flag, name in _BACKENDS:

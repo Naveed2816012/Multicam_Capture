@@ -17,14 +17,14 @@ A new .exe is built automatically every time a version tag (`v1.0`,
 
 ## Setup (Windows) — from source
 
-### Easiest: double-click the .bat files
+### Easiest: double-click run.bat
 1. Install ffmpeg and make sure `ffmpeg.exe` is on PATH (test with
-   `ffmpeg -version` in a terminal). Same ffmpeg you already use for
-   `fast_export_engine.py`.
-2. Double-click **`setup.bat`** (once) — creates a `venv` folder next to
-   the scripts and installs everything from `requirements.txt` into it.
-   It also warns you if ffmpeg isn't on PATH.
-3. Double-click **`run.bat`** any time you want to launch the app.
+   `ffmpeg -version` in a terminal).
+2. Double-click **`run.bat`**. The first time, it creates a `venv`
+   folder next to the scripts and installs everything from
+   `requirements.txt` into it, then launches the app. Every time after
+   that, it just activates the existing `venv` and launches — no
+   separate setup step needed.
 
 ### Manual / if you prefer the terminal
 1. Install ffmpeg as above.
@@ -92,16 +92,6 @@ it will match your real recording length even if `duplicate_pct` is
 high. `worst_single_freeze_seconds` tells you whether you had one bad
 half-second or it was scattered/negligible.
 
-A test script is included so you can verify this guarantee on your own
-machine without needing an actual flaky camera:
-
-```
-python test_reliability.py
-```
-
-It records 8 seconds from a deliberately stall-prone simulated source
-and confirms the output video length still matches wall-clock time.
-
 ## Quality / file size
 
 Three presets (CRF-based for the default software encoder):
@@ -164,7 +154,3 @@ expensive) problem than what this tool solves.
   at a given quality preset.
 - No audio capture currently (behavior rigs usually don't need it; say
   if you do and I'll add it per-source).
-- `test_reliability.py` and `flaky_source.py` are dev/sanity-check
-  tools, not part of the recording app itself — safe to delete if you
-  don't want them, or keep them to re-verify reliability after any
-  hardware change (new laptop, different USB hub, etc).

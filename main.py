@@ -25,7 +25,7 @@ import cv2
 from PIL import Image, ImageTk
 
 from camera_manager import (list_cameras, list_audio_devices,
-                              CameraCaptureThread, is_builtin_camera)
+                              CameraCaptureThread)
 from screen_capture import list_monitors, ScreenCaptureThread
 from session import RecordingSession
 
@@ -91,7 +91,6 @@ class App(tk.Tk):
         self._drag_over      = None
         self._maximized_tile = None   # name of tile currently expanded to fill area
         self._fps_track      = {}     # name -> {t, f, fps} for live fps computation
-        self._builtin_info   = None
 
         # Persisted settings (save location + per-camera fps/resolution/etc.)
         self._settings_path = os.path.join(
@@ -117,20 +116,6 @@ class App(tk.Tk):
     def _build_top_bar(self):
         bar = ttk.Frame(self)
         bar.pack(side=tk.TOP, fill=tk.X, padx=8, pady=6)
-
-        # Built-in camera (laptop webcam) ─────────────────────────────────
-        bic = ttk.LabelFrame(bar, text="Built-in Camera")
-        bic.pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        self.builtin_var = tk.BooleanVar(value=False)
-        self._builtin_chk = ttk.Checkbutton(
-            bic, text="Add Built-in Webcam",
-            variable=self.builtin_var,
-            command=self._toggle_builtin, state=tk.DISABLED)
-        self._builtin_chk.pack(anchor="w", padx=6, pady=4)
-        self._builtin_label = ttk.Label(bic, text="Detecting…",
-                                         foreground="#888",
-                                         font=("Segoe UI", 8))
-        self._builtin_label.pack(anchor="w", padx=6, pady=(0, 4))
 
         # Screen source ───────────────────────────────────────────────────
         scr = ttk.LabelFrame(bar, text="Screen Source")
@@ -245,32 +230,10 @@ class App(tk.Tk):
     # ══════════════════════════════════════════════════════════════════════
 
     def _build_camera_tiles(self, cams):
-        builtin = None
-        externals = []
-        for entry in cams:
-            index, cam_name, backend = entry
-            if is_builtin_camera(cam_name) or (builtin is None and index == 0 and len(cams) > 1):
-                if builtin is None:
-                    builtin = entry
-                    continue
-            externals.append(entry)
-
-        # If no name-match and only one camera total, treat index 0 as external
-        if builtin is None and len(cams) == 1:
-            externals = cams
-
-        # Update built-in camera checkbox
-        self._builtin_info = builtin
-        if builtin:
-            _, bname, _ = builtin
-            self._builtin_label.config(text=_clean_label(bname))
-            self._builtin_chk.config(state=tk.NORMAL)
-        else:
-            self._builtin_label.config(text="None detected")
-            self._builtin_chk.config(state=tk.DISABLED)
-
-        # External cameras → tiles immediately
-        for index, cam_name, backend in externals:
+        # All detected cameras go straight to tiles now — no more guessing
+        # which one is "built-in" (that heuristic misidentified USB cameras
+        # as built-in webcams and has been removed).
+        for index, cam_name, backend in cams:
             safe = f"cam_{index}_{cam_name}".replace(" ", "_")
             if safe in self.preview_sources:
                 continue
@@ -508,27 +471,6 @@ class App(tk.Tk):
         self._fps_track.pop(name, None)
         self._relayout()
         self._update_global_btns()
-
-    def _toggle_builtin(self):
-        """Add or remove the built-in webcam tile."""
-        if not self._builtin_info:
-            return
-        index, cam_name, backend = self._builtin_info
-        safe = f"cam_{index}_{cam_name}".replace(" ", "_")
-        if self.builtin_var.get():
-            if safe not in self.preview_sources:
-                try:
-                    src = CameraCaptureThread(index, cam_name, backend=backend)
-                    src.start()
-                except Exception as e:
-                    messagebox.showerror("Built-in camera failed", str(e))
-                    self.builtin_var.set(False)
-                    return
-                self.preview_sources[safe] = src
-                self._add_tile(safe, src)
-                self._relayout()
-        else:
-            self._remove_tile(safe)
 
     # ── drag-and-drop tile reordering ─────────────────────────────────────
 
