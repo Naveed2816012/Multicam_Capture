@@ -28,6 +28,12 @@ The portable ZIP also includes:
 - `Start_MulticamCapture.bat` — launches the app and shows the crash log if it closes immediately.
 - `Check_Standalone.bat` — verifies the extracted folder can run offline before you start an experiment.
 
+Shortcut helper:
+- `Install_Shortcuts.bat` copies the app to your user programs folder,
+  creates Desktop + Start Menu shortcuts, and tries to pin it to the taskbar.
+  If Windows blocks automatic taskbar pinning, right-click the Start Menu
+  shortcut and choose **Pin to taskbar**.
+
 A new .exe is built automatically every time a version tag (`v1.0`,
 `v1.1`, ...) is pushed to GitHub — see `.github/workflows/build.yml`.
 
@@ -53,9 +59,14 @@ A new .exe is built automatically every time a version tag (`v1.0`,
 - **Output**: choose a folder and session name. Keep the session name
   short — combined with your B:\ drive's existing deep folder structure,
   long names can hit the Windows 260-char path limit.
+- If a session folder or output file with the same name already exists,
+  the app adds a timestamp suffix instead of overwriting your old files.
 - **Start Recording**: spins up one ffmpeg encoder per selected source,
   writes `<source>.mp4` + `<source>_timestamps.csv` for each, plus one
   `session_sync.json` for the whole session.
+- **Pause**: keeps recording time intact by writing freeze frames while
+  paused. The status line keeps showing elapsed minutes/seconds, total
+  frames, paused time, and average FPS.
 - **Stop Recording**: drains any buffered frames before closing files
   (no truncated last second).
 

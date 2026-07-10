@@ -669,10 +669,6 @@ class App(tk.Tk):
         sess = self._ensure_session()
         if sess.is_recording(name):
             self._cancel_limit(name)
-            # Resume first so the writer's run-loop exits its pause spin-wait
-            # immediately rather than waiting for the next 20 ms tick.
-            if sess.is_paused(name):
-                sess.resume_writer(name)
             # Update UI immediately — don't block on encoder shutdown
             self._tile_stopping(name)
             self._update_global_btns()
@@ -750,8 +746,9 @@ class App(tk.Tk):
         if tile:
             tile["rec_btn"].config(text="■ Stop", bg=REC_BG, fg=REC_FG,
                                    state=tk.NORMAL)
-            tile["status_lbl"].config(text="● 00:00  /  0 frames",
+            tile["status_lbl"].config(text="● 00:00 (0s)  |  0 frames  |  avg 0.0 fps",
                                        foreground=REC_BG)
+            tile["pause_btn"].config(text="⏸ Pause", bg="#e67e22")
             tile["pause_btn"].grid()
 
     def _tile_idle(self, name):
@@ -769,13 +766,16 @@ class App(tk.Tk):
             tile = self.tiles.get(name)
             if tile:
                 tile["pause_btn"].config(text="⏸ Pause", bg="#e67e22")
-                tile["status_lbl"].config(text="Recording…", foreground=REC_BG)
+                tile["status_lbl"].config(text="Recording — timeline kept",
+                                          foreground=REC_BG)
         else:
             self.session.pause_writer(name)
             tile = self.tiles.get(name)
             if tile:
                 tile["pause_btn"].config(text="▶ Resume", bg="#2980b9")
-                tile["status_lbl"].config(text="Paused", foreground="#2980b9")
+                tile["status_lbl"].config(
+                    text="Paused — writing freeze frames, time still counts",
+                    foreground="#2980b9")
 
     def _start_all(self):
         # Capture one shared timestamp so every source uses the same
@@ -820,32 +820,26 @@ class App(tk.Tk):
 
             if self.session and self.session.is_recording(name):
                 writer = self.session.writers.get(name)
-                if writer and not writer.is_paused:
-                    elapsed = now - writer.t0
-                    mins, secs = divmod(int(elapsed), 60)
-
-                    # Live FPS: frames written since last check (update every 0.75s)
-                    trk = self._fps_track.get(name)
-                    if trk is None:
-                        self._fps_track[name] = {"t": now, "f": writer.frames_written, "fps": 0.0}
-                        live_fps = 0.0
-                    else:
-                        dt = now - trk["t"]
-                        if dt >= 0.75:
-                            df = writer.frames_written - trk["f"]
-                            live_fps = df / dt if dt > 0 else 0.0
-                            self._fps_track[name] = {"t": now, "f": writer.frames_written, "fps": live_fps}
-                        else:
-                            live_fps = trk["fps"]
-
+                if writer:
+                    elapsed = writer.elapsed_seconds()
+                    elapsed_label = _format_elapsed(elapsed)
+                    paused = writer.is_paused
+                    avg_fps = writer.average_fps()
+                    paused_seconds = writer.paused_seconds()
+                    paused_note = (f"  |  paused {_format_elapsed(paused_seconds)}"
+                                   if paused_seconds >= 1 else "")
+                    prefix = "⏸" if paused else "●"
+                    foreground = "#2980b9" if paused else REC_BG
                     tile = self.tiles.get(name)
                     if tile:
                         tile["status_lbl"].config(
-                            text=(f"● {mins:02d}:{secs:02d}"
+                            text=(f"{prefix} {elapsed_label} ({int(elapsed)}s)"
                                   f"  |  {writer.frames_written} frames"
-                                  f"  |  {live_fps:.1f} fps"),
-                            foreground=REC_BG)
-                    rec_parts.append(f"{name}: {mins:02d}:{secs:02d} @ {live_fps:.0f}fps")
+                                  f"  |  avg {avg_fps:.1f} fps"
+                                  f"{paused_note}"),
+                            foreground=foreground)
+                    rec_parts.append(
+                        f"{name}: {elapsed_label}, {writer.frames_written}f, avg {avg_fps:.1f}fps")
 
         if rec_parts:
             self.status_var.set("Recording | " + "   ".join(rec_parts))
@@ -935,16 +929,21 @@ class App(tk.Tk):
         audio_note = (f"\nAudio device: {s['audio_device']}"
                       if s.get("audio_device") and s["audio_device"] != "none"
                       else "")
+        pause_note = (f"\nPaused time kept: {s.get('paused_seconds', 0)}s"
+                      f"  |  {s.get('paused_frames', 0)} freeze frames"
+                      if s.get("paused_frames") else "")
+        avg_note = f"  |  Avg FPS: {s.get('average_fps', 0)}"
         if s["duplicate_frames"] == 0:
             body = (f"Duration: {s['video_duration_seconds']}s  |  "
-                    f"{s['frames_written']} frames  |  Codec: {s['codec_used']}"
-                    f"{audio_note}")
+                    f"{s['frames_written']} frames{avg_note}  |  "
+                    f"Codec: {s['codec_used']}"
+                    f"{audio_note}{pause_note}")
         else:
             body = (f"{s['duplicate_pct']}% of frames repeated due to source stalls\n"
                     f"({s['total_dropped_seconds']}s total  |  "
                     f"worst freeze: {s['worst_single_freeze_seconds']}s)\n"
                     f"Duration still correct: {s['video_duration_seconds']}s"
-                    f"{audio_note}")
+                    f"{avg_note}{audio_note}{pause_note}")
         body += f"\n\nSaved to:\n{self.session.session_dir}"
         messagebox.showinfo(title, body)
 
@@ -969,6 +968,16 @@ def _make_info(name, w, h):
     if w and h:
         return f"{display}  |  {w}×{h}  |  {_aspect(w, h)}"
     return display
+
+
+def _format_elapsed(seconds):
+    total = max(0, int(seconds))
+    mins, secs = divmod(total, 60)
+    hours, mins = divmod(mins, 60)
+    if hours:
+        return f"{hours:02d}:{mins:02d}:{secs:02d}"
+    return f"{mins:02d}:{secs:02d}"
+
 
 def _avg_ratio(tiles):
     rs = [t["src_w"] / t["src_h"]

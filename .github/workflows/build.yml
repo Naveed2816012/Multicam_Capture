@@ -73,6 +73,8 @@ jobs:
           Copy-Item README.md dist\MulticamCapture\README.md
           Copy-Item Start_MulticamCapture.bat dist\MulticamCapture\Start_MulticamCapture.bat
           Copy-Item Check_Standalone.bat dist\MulticamCapture\Check_Standalone.bat
+          Copy-Item Install_Shortcuts.bat dist\MulticamCapture\Install_Shortcuts.bat
+          Copy-Item install_shortcuts.ps1 dist\MulticamCapture\install_shortcuts.ps1
           $zipPath = Join-Path (Resolve-Path dist).Path "MulticamCapture-Windows-Portable.zip"
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
           Add-Type -AssemblyName System.IO.Compression.FileSystem

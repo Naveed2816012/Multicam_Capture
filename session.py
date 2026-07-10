@@ -6,12 +6,47 @@ import time
 from paced_writer import PacedWriter
 
 
+def _timestamp_suffix():
+    return time.strftime("%Y%m%d_%H%M%S")
+
+
+def _unique_dir(path):
+    if not os.path.exists(path):
+        return path
+    suffix = _timestamp_suffix()
+    candidate = f"{path}_{suffix}"
+    counter = 2
+    while os.path.exists(candidate):
+        candidate = f"{path}_{suffix}_{counter}"
+        counter += 1
+    return candidate
+
+
+def _unique_file(path, reserved_paths=None):
+    reserved_paths = reserved_paths or set()
+    normalized = os.path.normcase(os.path.abspath(path))
+    if not os.path.exists(path) and normalized not in reserved_paths:
+        return path
+
+    root, ext = os.path.splitext(path)
+    suffix = _timestamp_suffix()
+    candidate = f"{root}_{suffix}{ext}"
+    counter = 2
+    while (os.path.exists(candidate) or
+           os.path.normcase(os.path.abspath(candidate)) in reserved_paths):
+        candidate = f"{root}_{suffix}_{counter}{ext}"
+        counter += 1
+    return candidate
+
+
 class RecordingSession:
     def __init__(self, output_dir, session_name):
-        self.session_dir = os.path.join(output_dir, session_name)
+        self.requested_session_dir = os.path.join(output_dir, session_name)
+        self.session_dir = _unique_dir(self.requested_session_dir)
         os.makedirs(self.session_dir, exist_ok=True)
         self.writers = {}
         self.t0      = None
+        self._reserved_paths = set()
 
     def start_writer(self, name, src,
                      output_label=None,
@@ -36,8 +71,16 @@ class RecordingSession:
         fps    = fps_override or src.fps
         label  = (output_label or name).replace(" ", "_")
 
-        video_path = os.path.join(self.session_dir, f"{label}.mp4")
-        log_path   = os.path.join(self.session_dir, f"{label}_timestamps.csv")
+        video_path = _unique_file(
+            os.path.join(self.session_dir, f"{label}.mp4"),
+            self._reserved_paths)
+        self._reserved_paths.add(os.path.normcase(os.path.abspath(video_path)))
+
+        video_root, _ = os.path.splitext(video_path)
+        log_path = _unique_file(
+            f"{video_root}_timestamps.csv",
+            self._reserved_paths)
+        self._reserved_paths.add(os.path.normcase(os.path.abspath(log_path)))
 
         w = PacedWriter(name, src, video_path, log_path,
                         width, height, fps, t0,
@@ -82,6 +125,7 @@ class RecordingSession:
     def _write_sync_stub(self):
         meta = {
             "session_dir": self.session_dir,
+            "requested_session_dir": self.requested_session_dir,
             "t0_unix": self.t0,
             "note": (
                 "Each source's video duration equals wall-clock recording "
