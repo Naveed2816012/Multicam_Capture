@@ -28,6 +28,18 @@ jobs:
           pip install -r requirements.txt
           pip install --upgrade pyinstaller pyinstaller-hooks-contrib
 
+      - name: Vendor a static ffmpeg binary
+        # Downloaded once, here, at BUILD time -- baked into the .exe.
+        # The end user's machine never talks to the network for this.
+        run: |
+          New-Item -ItemType Directory -Force -Path tools\ffmpeg | Out-Null
+          $url = "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip"
+          Invoke-WebRequest -Uri $url -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
+          $bin = Get-ChildItem -Path ffmpeg_tmp -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          Copy-Item $bin.FullName tools\ffmpeg\ffmpeg.exe
+          Remove-Item ffmpeg.zip, ffmpeg_tmp -Recurse -Force
+
       - name: Build standalone EXE
         run: |
           python -m PyInstaller `
@@ -39,9 +51,9 @@ jobs:
             --collect-all cv2 `
             --collect-all mss `
             --collect-all PIL `
-            --collect-all imageio_ffmpeg `
             --collect-submodules pygrabber `
             --collect-submodules comtypes `
+            --add-data "tools/ffmpeg;tools/ffmpeg" `
             --hidden-import PIL._tkinter_finder `
             launcher.py
 
@@ -65,9 +77,9 @@ jobs:
             --collect-all cv2 `
             --collect-all mss `
             --collect-all PIL `
-            --collect-all imageio_ffmpeg `
             --collect-submodules pygrabber `
             --collect-submodules comtypes `
+            --add-data "tools/ffmpeg;tools/ffmpeg" `
             --hidden-import PIL._tkinter_finder `
             launcher.py
           Copy-Item README.md dist\MulticamCapture\README.md

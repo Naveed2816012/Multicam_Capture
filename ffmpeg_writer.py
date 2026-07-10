@@ -24,26 +24,27 @@ def _app_dir():
 
 
 def locate_ffmpeg():
-    names = ["ffmpeg.exe", "ffmpeg"] if os.name == "nt" else ["ffmpeg"]
-    search_dirs = [_app_dir()]
+    """Find ffmpeg with zero network access.
+
+    Search order:
+      1. tools/ffmpeg/ next to the running script or .exe (the vendored,
+         committed-nowhere-but-always-bundled binary — this is what ships
+         inside the built app and is what makes it self-sufficient).
+      2. The same tools/ffmpeg/ path inside PyInstaller's frozen bundle
+         (covers --onefile, where files are unpacked to a temp dir).
+      3. System PATH — a convenience fallback ONLY for running from source
+         during development; never relied on in the shipped .exe.
+    """
+    name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    search_dirs = [os.path.join(_app_dir(), "tools", "ffmpeg")]
     bundled_dir = getattr(sys, "_MEIPASS", None)
     if bundled_dir:
-        search_dirs.append(bundled_dir)
+        search_dirs.append(os.path.join(bundled_dir, "tools", "ffmpeg"))
 
     for folder in search_dirs:
-        for name in names:
-            candidate = os.path.join(folder, name)
-            if os.path.isfile(candidate):
-                return candidate
-
-    try:
-        from imageio_ffmpeg import get_ffmpeg_exe
-
-        candidate = get_ffmpeg_exe()
-        if candidate and os.path.isfile(candidate):
+        candidate = os.path.join(folder, name)
+        if os.path.isfile(candidate):
             return candidate
-    except Exception:
-        pass
 
     return shutil.which("ffmpeg")
 
@@ -52,9 +53,10 @@ def find_ffmpeg():
     path = locate_ffmpeg()
     if not path:
         raise FileNotFoundError(
-            "ffmpeg not found. This release should include a bundled ffmpeg. "
-            "If it is missing, download the portable ZIP again, extract the "
-            "whole folder, and run MulticamCapture.exe from inside it."
+            "ffmpeg not found. The built app ships its own copy in "
+            "tools/ffmpeg/ and should never hit this. If you're running "
+            "from source, either install ffmpeg system-wide (on PATH) or "
+            "drop ffmpeg.exe into tools/ffmpeg/ next to main.py."
         )
     return path
 

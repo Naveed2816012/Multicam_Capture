@@ -37,7 +37,6 @@ class PacedWriter(threading.Thread):
 
         self.frames_written          = 0
         self.duplicate_frames        = 0
-        self.paused_frames           = 0
         self.consecutive_duplicates  = 0
         self.max_consecutive_duplicates = 0
         self._paused      = False
@@ -78,32 +77,33 @@ class PacedWriter(threading.Thread):
             "scheduled_time_unix",     # absolute wall-clock of this frame
             "source_capture_timestamp_unix",  # when camera actually delivered it
             "is_duplicate",            # 1 = source stalled, frame repeated
-            "is_paused",               # 1 = user paused; last frame repeated
         ])
         self._last_source_ts = None
         self._blank          = None
-        self._last_output_frame = None
 
     def run(self):
         frame_index = 0
         while not self._stop_event.is_set():
+            with self._pause_lock:
+                paused = self._paused
+
+            if paused:
+                # Genuine pause: nothing is written to ffmpeg, frame_index
+                # does not advance, and no time is added to the output.
+                # t0 gets shifted forward (see resume()) so that when we
+                # come back we resume exactly on schedule instead of
+                # bursting out every frame that was "missed" while paused.
+                time.sleep(0.02)
+                continue
+
             scheduled = self.t0 + frame_index / self.fps
             now = time.time()
             if scheduled > now:
                 time.sleep(min(scheduled - now, 0.02))
                 continue
 
-            with self._pause_lock:
-                paused = self._paused
-
-            if paused:
-                frame = (None if self._last_output_frame is None
-                         else self._last_output_frame.copy())
-                src_ts = self._last_source_ts
-                is_dup = True
-            else:
-                frame, src_ts = self.source.get_latest()
-                is_dup = src_ts is not None and src_ts == self._last_source_ts
+            frame, src_ts = self.source.get_latest()
+            is_dup = src_ts is not None and src_ts == self._last_source_ts
 
             if frame is None:
                 if self._blank is None:
@@ -113,9 +113,6 @@ class PacedWriter(threading.Thread):
                 is_dup = True
             elif frame.shape[1] != self.width or frame.shape[0] != self.height:
                 frame = cv2.resize(frame, (self.width, self.height))
-
-            if not paused:
-                self._last_output_frame = frame.copy()
 
             try:
                 self.proc.stdin.write(frame.tobytes())
@@ -128,13 +125,9 @@ class PacedWriter(threading.Thread):
                 f"{scheduled:.6f}",                     # scheduled_time_unix
                 "" if src_ts is None else f"{src_ts:.6f}",
                 int(is_dup),
-                int(paused),
             ])
 
-            if paused:
-                self.paused_frames += 1
-                self.consecutive_duplicates = 0
-            elif is_dup:
+            if is_dup:
                 self.duplicate_frames      += 1
                 self.consecutive_duplicates += 1
                 self.max_consecutive_duplicates = max(
@@ -153,19 +146,25 @@ class PacedWriter(threading.Thread):
         self._stop_event.set()
 
     def pause(self):
-        """Freeze the recording frame while the output timeline keeps running."""
+        """Stop recording. No frames are written and the clip's duration
+        stops advancing until resume() is called — a real pause, not a
+        freeze-frame filler."""
         with self._pause_lock:
             if not self._paused:
                 self._paused      = True
                 self._pause_start = time.time()
 
     def resume(self):
-        """Resume live frames without removing paused time from the output."""
+        """Resume recording. The schedule clock (t0) is shifted forward by
+        exactly how long we were paused, so writing picks back up on
+        schedule instead of dumping a burst of catch-up frames."""
         with self._pause_lock:
             if self._paused and self._pause_start is not None:
-                self._total_paused_seconds += time.time() - self._pause_start
-                self._paused      = False
-                self._pause_start = None
+                gap = time.time() - self._pause_start
+                self._total_paused_seconds += gap
+                self.t0           += gap
+                self._paused       = False
+                self._pause_start  = None
 
     @property
     def is_paused(self):
@@ -206,7 +205,6 @@ class PacedWriter(threading.Thread):
             "frames_written":            self.frames_written,
             "video_duration_seconds":    round(self.frames_written / self.fps, 2),
             "average_fps":               round(self.average_fps(), 2),
-            "paused_frames":             self.paused_frames,
             "paused_seconds":            round(self.paused_seconds(), 2),
             "duplicate_frames":          self.duplicate_frames,
             "duplicate_pct":             pct,

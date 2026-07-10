@@ -1,6 +1,5 @@
-opencv-python>=4.9,<5
+opencv-python-headless>=4.9,<5
 mss>=9,<11
 numpy>=1.26,<3
 Pillow>=10,<13
 pygrabber>=0.2,<0.3 ; sys_platform == "win32"
-imageio-ffmpeg>=0.5,<1

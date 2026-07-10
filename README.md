@@ -1,6 +1,6 @@
 # Multi-Cam + Screen Recorder
 
-AMCap-style capture tool, but for an arbitrary number of simultaneous
+A simple, no-fuss capture tool for an arbitrary number of simultaneous
 cameras plus the screen, with synchronized recording for behavior
 experiments.
 

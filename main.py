@@ -766,7 +766,7 @@ class App(tk.Tk):
             tile = self.tiles.get(name)
             if tile:
                 tile["pause_btn"].config(text="⏸ Pause", bg="#e67e22")
-                tile["status_lbl"].config(text="Recording — timeline kept",
+                tile["status_lbl"].config(text="Recording",
                                           foreground=REC_BG)
         else:
             self.session.pause_writer(name)
@@ -774,7 +774,7 @@ class App(tk.Tk):
             if tile:
                 tile["pause_btn"].config(text="▶ Resume", bg="#2980b9")
                 tile["status_lbl"].config(
-                    text="Paused — writing freeze frames, time still counts",
+                    text="Paused — recording stopped, no frames written",
                     foreground="#2980b9")
 
     def _start_all(self):
@@ -826,7 +826,7 @@ class App(tk.Tk):
                     paused = writer.is_paused
                     avg_fps = writer.average_fps()
                     paused_seconds = writer.paused_seconds()
-                    paused_note = (f"  |  paused {_format_elapsed(paused_seconds)}"
+                    paused_note = (f"  |  {_format_elapsed(paused_seconds)} not recorded (paused)"
                                    if paused_seconds >= 1 else "")
                     prefix = "⏸" if paused else "●"
                     foreground = "#2980b9" if paused else REC_BG
@@ -929,9 +929,8 @@ class App(tk.Tk):
         audio_note = (f"\nAudio device: {s['audio_device']}"
                       if s.get("audio_device") and s["audio_device"] != "none"
                       else "")
-        pause_note = (f"\nPaused time kept: {s.get('paused_seconds', 0)}s"
-                      f"  |  {s.get('paused_frames', 0)} freeze frames"
-                      if s.get("paused_frames") else "")
+        pause_note = (f"\nPaused: {s.get('paused_seconds', 0)}s not recorded"
+                      if s.get("paused_seconds") else "")
         avg_note = f"  |  Avg FPS: {s.get('average_fps', 0)}"
         if s["duplicate_frames"] == 0:
             body = (f"Duration: {s['video_duration_seconds']}s  |  "

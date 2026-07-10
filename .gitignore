@@ -7,3 +7,5 @@ build/
 *.mp4
 *.csv
 session_sync.json
+tools/ffmpeg/*.exe
+tools/ffmpeg/ffmpeg
