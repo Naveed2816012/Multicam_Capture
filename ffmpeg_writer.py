@@ -1,6 +1,7 @@
 """ffmpeg helpers: binary location, quality presets, hardware-encoder
 smoke-test, and codec argument builders (video + optional audio)."""
 import os
+import sys
 import subprocess
 import shutil
 import numpy as np
@@ -16,12 +17,35 @@ QUALITY_PRESETS = {
 HARDWARE_ENCODERS = ["h264_nvenc", "h264_qsv", "h264_amf"]
 
 
+def _app_dir():
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def locate_ffmpeg():
+    names = ["ffmpeg.exe", "ffmpeg"] if os.name == "nt" else ["ffmpeg"]
+    search_dirs = [_app_dir()]
+    bundled_dir = getattr(sys, "_MEIPASS", None)
+    if bundled_dir:
+        search_dirs.append(bundled_dir)
+
+    for folder in search_dirs:
+        for name in names:
+            candidate = os.path.join(folder, name)
+            if os.path.isfile(candidate):
+                return candidate
+
+    return shutil.which("ffmpeg")
+
+
 def find_ffmpeg():
-    path = shutil.which("ffmpeg")
-    if path is None:
+    path = locate_ffmpeg()
+    if not path:
         raise FileNotFoundError(
-            "ffmpeg not found on PATH. Install from ffmpeg.org and add "
-            "ffmpeg.exe to your system PATH, then restart."
+            "ffmpeg not found. Put ffmpeg.exe in the same folder as "
+            "MulticamCapture.exe, or add ffmpeg.exe to your system PATH, "
+            "then restart the app."
         )
     return path
 

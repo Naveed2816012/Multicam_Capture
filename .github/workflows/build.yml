@@ -26,22 +26,77 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install --upgrade pyinstaller pyinstaller-hooks-contrib
 
-      - name: Build standalone exe
+      - name: Build standalone EXE
         run: |
-          pyinstaller --onefile --windowed --name MulticamCapture main.py
+          python -m PyInstaller `
+            --clean `
+            --noconfirm `
+            --onefile `
+            --windowed `
+            --name MulticamCapture `
+            --collect-all cv2 `
+            --collect-all mss `
+            --collect-all PIL `
+            --collect-submodules pygrabber `
+            --collect-submodules comtypes `
+            --hidden-import PIL._tkinter_finder `
+            launcher.py
+
+      - name: Smoke test standalone EXE
+        run: |
+          & dist\MulticamCapture.exe --self-test
+          if ($LASTEXITCODE -ne 0) {
+            $log = Join-Path $env:LOCALAPPDATA "MulticamCapture\crash.log"
+            if (Test-Path $log) { Get-Content $log }
+            exit $LASTEXITCODE
+          }
+
+      - name: Build portable ZIP
+        run: |
+          python -m PyInstaller `
+            --clean `
+            --noconfirm `
+            --onedir `
+            --windowed `
+            --name MulticamCapture `
+            --collect-all cv2 `
+            --collect-all mss `
+            --collect-all PIL `
+            --collect-submodules pygrabber `
+            --collect-submodules comtypes `
+            --hidden-import PIL._tkinter_finder `
+            launcher.py
+          Copy-Item README.md dist\MulticamCapture\README.md
+          $zipPath = Join-Path (Resolve-Path dist).Path "MulticamCapture-Windows-Portable.zip"
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::CreateFromDirectory((Resolve-Path dist\MulticamCapture).Path, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $true)
+
+      - name: Smoke test portable EXE
+        run: |
+          & dist\MulticamCapture\MulticamCapture.exe --self-test
+          if ($LASTEXITCODE -ne 0) {
+            $log = Join-Path $env:LOCALAPPDATA "MulticamCapture\crash.log"
+            if (Test-Path $log) { Get-Content $log }
+            exit $LASTEXITCODE
+          }
 
       - name: Upload EXE as downloadable artifact
         uses: actions/upload-artifact@v4
         with:
           name: MulticamCapture-Windows
-          path: dist/MulticamCapture.exe
+          path: |
+            dist/MulticamCapture.exe
+            dist/MulticamCapture-Windows-Portable.zip
 
       - name: Upload EXE as release asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/MulticamCapture.exe
+          files: |
+            dist/MulticamCapture.exe
+            dist/MulticamCapture-Windows-Portable.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

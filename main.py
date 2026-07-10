@@ -37,6 +37,7 @@ IDLE_FG  = "white"
 PANEL_BG = "#f5f5f5"
 
 PREVIEW_REFRESH_MS = 66   # ~15 fps UI redraw
+APP_NAME = "MulticamCapture"
 
 # ── per-tile setting options ───────────────────────────────────────────────
 QUAL_OPTIONS = {
@@ -63,6 +64,20 @@ def _clean_label(internal):
     s = re.sub(r"^cam \d+ ", "", s)
     s = re.sub(r"\(DSHOW\)|\(MSMF\)", "", s).strip()
     return s or internal
+
+
+def _settings_file_path():
+    base = os.environ.get("LOCALAPPDATA")
+    if base:
+        folder = os.path.join(base, APP_NAME)
+    else:
+        folder = os.path.join(os.path.expanduser("~"), f".{APP_NAME}")
+    try:
+        os.makedirs(folder, exist_ok=True)
+        return os.path.join(folder, "settings.json")
+    except OSError:
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "settings.json")
 
 
 class App(tk.Tk):
@@ -93,8 +108,7 @@ class App(tk.Tk):
         self._fps_track      = {}     # name -> {t, f, fps} for live fps computation
 
         # Persisted settings (save location + per-camera fps/resolution/etc.)
-        self._settings_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "settings.json")
+        self._settings_path = _settings_file_path()
         self._settings = self._load_settings()
 
         self._build_top_bar()

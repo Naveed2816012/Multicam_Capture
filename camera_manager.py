@@ -68,8 +68,11 @@ def list_audio_devices():
     Runs  ffmpeg -list_devices true -f dshow -i dummy  and parses stderr.
     Returns [] if ffmpeg is missing or no audio devices found.
     """
-    import shutil
-    ffmpeg = shutil.which("ffmpeg")
+    try:
+        from ffmpeg_writer import locate_ffmpeg
+        ffmpeg = locate_ffmpeg()
+    except Exception:
+        ffmpeg = None
     if not ffmpeg:
         return []
     try:

@@ -12,6 +12,18 @@ experiments.
    `MulticamCapture.exe` (or anywhere on PATH).
 4. Double-click `MulticamCapture.exe`. No Python, no pip, no venv.
 
+If the single `.exe` does not open on a different laptop, download
+`MulticamCapture-Windows-Portable.zip` from the same release, extract the
+whole folder, and double-click the `MulticamCapture.exe` inside it. The
+portable ZIP is less likely to be blocked by antivirus tools because it
+does not have to unpack itself into a temporary folder first.
+
+If Windows blocks the downloaded app, right-click the `.exe`, choose
+**Properties**, tick **Unblock** if it appears, then try again. Startup
+crashes are written to:
+
+`%LOCALAPPDATA%\MulticamCapture\crash.log`
+
 A new .exe is built automatically every time a version tag (`v1.0`,
 `v1.1`, ...) is pushed to GitHub — see `.github/workflows/build.yml`.
 
