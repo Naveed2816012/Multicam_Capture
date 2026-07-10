@@ -7,10 +7,10 @@ experiments.
 ## Easiest install (no Python needed): download the .exe
 
 1. Go to this repo's **Releases** page on GitHub.
-2. Download `MulticamCapture.exe` from the latest release.
-3. Install ffmpeg and put `ffmpeg.exe` in the same folder as
-   `MulticamCapture.exe` (or anywhere on PATH).
-4. Double-click `MulticamCapture.exe`. No Python, no pip, no venv.
+2. Download `MulticamCapture.exe` from the latest release, or download
+   `MulticamCapture-Windows-Portable.zip` and extract the whole folder.
+3. Double-click `MulticamCapture.exe`. No Python, no pip, no venv, no
+   separate ffmpeg install, and no internet connection needed after download.
 
 If the single `.exe` does not open on a different laptop, download
 `MulticamCapture-Windows-Portable.zip` from the same release, extract the
@@ -24,26 +24,27 @@ crashes are written to:
 
 `%LOCALAPPDATA%\MulticamCapture\crash.log`
 
+The portable ZIP also includes:
+- `Start_MulticamCapture.bat` — launches the app and shows the crash log if it closes immediately.
+- `Check_Standalone.bat` — verifies the extracted folder can run offline before you start an experiment.
+
 A new .exe is built automatically every time a version tag (`v1.0`,
 `v1.1`, ...) is pushed to GitHub — see `.github/workflows/build.yml`.
 
 ## Setup (Windows) — from source
 
 ### Easiest: double-click run.bat
-1. Install ffmpeg and make sure `ffmpeg.exe` is on PATH (test with
-   `ffmpeg -version` in a terminal).
-2. Double-click **`run.bat`**. The first time, it creates a `venv`
+1. Double-click **`run.bat`**. The first time, it creates a `venv`
    folder next to the scripts and installs everything from
    `requirements.txt` into it, then launches the app. Every time after
    that, it just activates the existing `venv` and launches — no
    separate setup step needed.
 
 ### Manual / if you prefer the terminal
-1. Install ffmpeg as above.
-2. `pip install -r requirements.txt`
+1. `pip install -r requirements.txt`
    - `pygrabber` gives you real camera names in the device list. Without
      it, the tool still works but lists cameras as "Camera 0", "Camera 1", etc.
-3. `python main.py`
+2. `python main.py`
 
 ## Using it
 

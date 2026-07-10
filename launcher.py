@@ -69,9 +69,12 @@ def run_self_test():
     from PIL import Image, ImageTk  # noqa: F401
 
     from camera_manager import list_audio_devices, list_cameras  # noqa: F401
-    from ffmpeg_writer import locate_ffmpeg  # noqa: F401
+    from ffmpeg_writer import locate_ffmpeg
     from screen_capture import ScreenCaptureThread, list_monitors  # noqa: F401
     from session import RecordingSession  # noqa: F401
+
+    if not locate_ffmpeg():
+        raise RuntimeError("Bundled ffmpeg was not found.")
 
     return 0
 

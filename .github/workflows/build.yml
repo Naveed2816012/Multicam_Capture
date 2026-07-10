@@ -39,6 +39,7 @@ jobs:
             --collect-all cv2 `
             --collect-all mss `
             --collect-all PIL `
+            --collect-all imageio_ffmpeg `
             --collect-submodules pygrabber `
             --collect-submodules comtypes `
             --hidden-import PIL._tkinter_finder `
@@ -64,11 +65,14 @@ jobs:
             --collect-all cv2 `
             --collect-all mss `
             --collect-all PIL `
+            --collect-all imageio_ffmpeg `
             --collect-submodules pygrabber `
             --collect-submodules comtypes `
             --hidden-import PIL._tkinter_finder `
             launcher.py
           Copy-Item README.md dist\MulticamCapture\README.md
+          Copy-Item Start_MulticamCapture.bat dist\MulticamCapture\Start_MulticamCapture.bat
+          Copy-Item Check_Standalone.bat dist\MulticamCapture\Check_Standalone.bat
           $zipPath = Join-Path (Resolve-Path dist).Path "MulticamCapture-Windows-Portable.zip"
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
           Add-Type -AssemblyName System.IO.Compression.FileSystem

@@ -36,6 +36,15 @@ def locate_ffmpeg():
             if os.path.isfile(candidate):
                 return candidate
 
+    try:
+        from imageio_ffmpeg import get_ffmpeg_exe
+
+        candidate = get_ffmpeg_exe()
+        if candidate and os.path.isfile(candidate):
+            return candidate
+    except Exception:
+        pass
+
     return shutil.which("ffmpeg")
 
 
@@ -43,9 +52,9 @@ def find_ffmpeg():
     path = locate_ffmpeg()
     if not path:
         raise FileNotFoundError(
-            "ffmpeg not found. Put ffmpeg.exe in the same folder as "
-            "MulticamCapture.exe, or add ffmpeg.exe to your system PATH, "
-            "then restart the app."
+            "ffmpeg not found. This release should include a bundled ffmpeg. "
+            "If it is missing, download the portable ZIP again, extract the "
+            "whole folder, and run MulticamCapture.exe from inside it."
         )
     return path
 
