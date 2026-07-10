@@ -3,8 +3,18 @@ $ErrorActionPreference = "Stop"
 $appName = "Multicam Capture"
 $folderName = "MulticamCapture"
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$installDir = Join-Path $env:LOCALAPPDATA "Programs\$folderName"
+$installDir = Join-Path $env:ProgramFiles $folderName
 $exeName = "MulticamCapture.exe"
+
+function Test-IsAdmin {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if (-not (Test-IsAdmin)) {
+    throw "Administrator permission is required to install into Program Files. Run Install_Shortcuts.bat and accept the Windows permission prompt."
+}
 
 function Get-FullPath([string]$path) {
     return [System.IO.Path]::GetFullPath($path).TrimEnd('\')
@@ -47,6 +57,9 @@ $sourceFull = Get-FullPath $sourceDir
 $installFull = Get-FullPath $installDir
 
 if ($sourceFull -ne $installFull) {
+    Get-Process -Name "MulticamCapture" -ErrorAction SilentlyContinue |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+
     if (Test-Path $installDir) {
         Remove-Item $installDir -Recurse -Force
     }
@@ -59,8 +72,14 @@ if (-not (Test-Path $exePath)) {
     throw "Could not find $exeName in $installDir"
 }
 
-$desktopDir = [Environment]::GetFolderPath("Desktop")
-$programsDir = [Environment]::GetFolderPath("Programs")
+$desktopDir = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonDesktopDirectory)
+$programsDir = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonPrograms)
+if (-not $desktopDir) {
+    $desktopDir = [Environment]::GetFolderPath("Desktop")
+}
+if (-not $programsDir) {
+    $programsDir = [Environment]::GetFolderPath("Programs")
+}
 $startMenuDir = Join-Path $programsDir $appName
 New-Item -ItemType Directory -Path $startMenuDir -Force | Out-Null
 

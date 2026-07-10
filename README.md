@@ -29,10 +29,12 @@ The portable ZIP also includes:
 - `Check_Standalone.bat` — verifies the extracted folder can run offline before you start an experiment.
 
 Shortcut helper:
-- `Install_Shortcuts.bat` copies the app to your user programs folder,
-  creates Desktop + Start Menu shortcuts, and tries to pin it to the taskbar.
-  If Windows blocks automatic taskbar pinning, right-click the Start Menu
-  shortcut and choose **Pin to taskbar**.
+- `Install_Shortcuts.bat` installs the extracted app into
+  `%ProgramFiles%\MulticamCapture` on the Windows OS drive, creates
+  Desktop + Start Menu shortcuts, and tries to pin it to the taskbar.
+  Windows will show a permission prompt, just like a normal software
+  installer. If Windows blocks automatic taskbar pinning, right-click the
+  Start Menu shortcut and choose **Pin to taskbar**.
 
 A new .exe is built automatically every time a version tag (`v1.0`,
 `v1.1`, ...) is pushed to GitHub — see `.github/workflows/build.yml`.
